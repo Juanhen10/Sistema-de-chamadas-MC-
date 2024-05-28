@@ -11,58 +11,19 @@ lembrando que é largura(width) primeiro de depois altura (height)
 
 from pathlib import Path
 
+from PIL import Image, ImageTk
+
 import tkinter as tk
 # Explicit imports to satisfy Flake8
 from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage
 import sys
-from utils import IMAGEM_DIR
-
+from utils import IMAGEM_DIR, PlaceholderEntry
+import pyttsx3
 # Nome das telas
-class Visualização_screen:
-      def __init__(self, window):
-        # Criando o a tela #
-        self.window = window
-        self.window.configure(bg="#BB9753")
-        self.visualizar = tk.Canvas(
-            window,
-            bg="#BB9753",
-            height=400,
-            width=450,
-            relief="ridge"
-        )
-        self.visualizar.place(x = 0, y = 0)
-        self.visualizar.pack()
-
-class PlaceholderEntry(tk.Entry):
-    def __init__(self, master=None, placeholder="", **kwargs):
-        super().__init__(master, **kwargs)
-
-        self.placeholder = placeholder
-        self.placeholder_color = "black"
-        self.default_fg_color = self["fg"]
-
-        self.bind("<FocusIn>", self.focus_in_event)
-        self.bind("<FocusOut>", self.focus_out_event)
-
-        self.put_placeholder()
-
-    def put_placeholder(self):
-        self.insert(0, self.placeholder)
-        self["fg"] = self.placeholder_color
-    
-    def focus_in_event(self, event):
-        if self.get() == self.placeholder:
-            self.delete(0, "end")
-            self["fg"] = self.default_fg_color
-    
-    def focus_out_event(self, event):
-        if not self.get():
-            self.put_placeholder()
-            self["fg"] = self.placeholder_color
-
-
 class Main_Window:
     def __init__(self, window):
+        # Sistema de voz
+        self.engine = pyttsx3.init()
         # Criando o a tela #
         self.window = window
         self.window.configure(bg="#BB9753")
@@ -75,6 +36,7 @@ class Main_Window:
         )
         self.tela.place(x = 0, y = 0)
         self.tela.pack()
+        
         # adicionando imagem de home
         self.home_imagem = PhotoImage(
             file= IMAGEM_DIR /"image_1.png")
@@ -103,7 +65,8 @@ class Main_Window:
             100,
             image= self.painel_imagem
         )
-
+        # Lista de chamados
+        self.calls = []
         # configurando o Botões 
         self.btn_imagem = PhotoImage(
         file= IMAGEM_DIR / "button_1.png"
@@ -116,7 +79,7 @@ class Main_Window:
             image=self.btn_imagem,
             borderwidth=0,
             highlightthickness=0,
-            command=lambda: print('botão clicado'),
+            command=self.add_call,
             
             )
         self.btn_call.place(
@@ -152,58 +115,85 @@ class Main_Window:
             height=25.0
         )
         self.input.lift()
-        print(self.input)
+        # visualizador dos nomes chamados | não chamados
         
-        # Notoficação de registro
-        
-        self.notify_img = PhotoImage(
-            file= IMAGEM_DIR / 'image_3.png'
-            )
-    
+        self.screen_btn_bg = PhotoImage(
+            file= IMAGEM_DIR / 'verificando (1).png'
+        )
         self.tela.create_image(
-            226.0,
-            333.0,
-            image=self.notify_img
-                )
-    
-        self.button = tk.Button(
+            400,
+            350,
+            image = self.screen_btn_bg
+        )
+        
+        self.screen_btn = tk.Button(
             window,
-            text="Abrir segunda tela",
+            cursor= 'hand2',
+            bg="#FFFFFF",
             command=self.open_second_window,
-            bg="#BB9753",
-            fg="#000716",
-            font="Lalezar",
+            image= self.screen_btn_bg,
             borderwidth=0,
-            highlightthickness=0
-        )
-        self.button.place(x=115, y=220, width=226.5, height=25.0)
+            highlightthickness=0,
 
+        )
+        self.screen_btn.place(x=380, y=333, width=35, height=35)
+        # registrando o nome
+        self.calls_var = tk.StringVar(value=self.calls)
+    
+    def add_call(self, event=None):
+        call = self.input.get().strip()
+        if call:
+            self.calls.insert(0, call)
+            if len(self.calls) > 5:
+                self.calls.pop()
+            self.calls_var.set(self.calls)
+            self.input.delete(0, tk.END)
+            self.announce_call(call)
+    def announce_call(self, call):
+        self.engine.say(call)
+        self.engine.runAndWait()
+
+    # Configuração da tela de visualização 
     def open_second_window(self):
-        second_window = tk.Toplevel(self.window)
-        second_window.title("Nomes e Senhas")
-        second_window.configure(
-            bg="#BB9753"
-        )
-        second_window.geometry("450x400")
+        self.second_window = tk.Toplevel(self.window)
+        self.second_window.title("Nomes e Senhas")
+        self.second_window.configure(bg="#BB9753" )
+        self.second_window.geometry("800x600")
+        self.second_window.resizable(False, False)
+        # Frame de titulo 1 
+        frame = tk.Frame(self.second_window, bg='white')
+        frame.pack(pady=10, anchor="sw", padx=100)
+        title = tk.Label(frame, text="Nomes aguardando", 
+                                font=("Arial", 20),
+                                bg="#BB9753",
+                                fg="#ffffff")
+        title.pack()
+        # LOGO 
+        logo_image = PhotoImage(file= IMAGEM_DIR / "logo_ofner.png")
+        logo_label = tk.Label(frame,image=logo_image, bg="#BB9753")
+        logo_label.image = logo_image
+        logo_label.pack(pady=20) 
+        # Colocando o design e chamando os nome na segunda tela
+        self.calls = []
+        self.calls_var = tk.StringVar(value=self.calls)
+        self.calls_listbox = tk.Listbox(
+            self.second_window, 
+            listvariable=self.calls_var,
+            font=("Arial",30), 
+            height=50,
+            width=21,
+            fg="red"
+            )
+        self.calls_listbox.pack(anchor="sw", pady=10, padx=5)
+       # Nomes chamados 
+       
 
-        tela = tk.Canvas(
-            second_window,
-            bg ="BB9753",
-            height=400,
-            width=450,
-            relief="ridge"
-        )
-
-        tela.place(x=0, y=0)
-        tela.pack()
-
-        label = tk.Label(second_window,
-                         text="Tela",
-                         bg="#BB9753",
-                         fg="#000716",
-                         font="Lalezar"
-                         )
-        label.pack(pady=20)
+     # Configurando o logotipo na segunda janela
+           
+      
+        
+        
+        
     def make_window_transparent(self, alpha):
         self.window.attributes("-alpha", alpha)
         
